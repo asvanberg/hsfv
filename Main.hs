@@ -3,6 +3,8 @@ module Main where
 import Parser (strict, tolerant)
 import Verifier (verifySfv)
 
+import Control.Monad (join)
+import Data.Bifunctor (first)
 import Data.Word (Word32)
 import Data.Functor ((<$>))
 import Data.List.NonEmpty (intersperse, NonEmpty)
@@ -15,10 +17,10 @@ data SfvError = InvalidSfv ParseError | VerificationFailed (NonEmpty FilePath) d
 
 parseAndVerify :: Parser [(FilePath, Word32)] -> FilePath -> IO (Either SfvError ())
 parseAndVerify parser sfvFile =
-  do parsed <- parseFromFile parser sfvFile
-     either parseError parseResult (verifySfv <$> parsed)
-  where parseError = return . Left . InvalidSfv
-        parseResult = fmap $ either (Left . VerificationFailed) Right
+  do parsed <- parse parser sfvFile
+     join <$> traverse verify parsed
+  where parse = ((first InvalidSfv <$>) .) . parseFromFile
+        verify = (first VerificationFailed <$>) . verifySfv
 
 main :: IO ()
 main = do args <- getArgs
