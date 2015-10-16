@@ -23,12 +23,12 @@ parseAndVerify parser sfvFile =
 main :: IO ()
 main = do args <- getArgs
           case args of
-            ("-t" : sfvFile : []) -> f tolerant sfvFile
-            (sfvFile : []) -> f strict sfvFile
+            ["-t", sfvFile] -> f tolerant sfvFile
+            [sfvFile] -> f strict sfvFile
             _ -> do progName <- getProgName
                     putStrLn $ "Usage: " ++ progName ++ " [-t] <sfv>"
                     putStrLn "Use -t flag for tolerant parsing"
-       where f parser sfvFile = (parseAndVerify parser sfvFile) >>= (either showError success)
+       where f parser sfvFile = parseAndVerify parser sfvFile >>= either showError success
              success = const $ putStrLn "Ok"
              showError (InvalidSfv pe) =
                do putStrLn "Parsing failure;"

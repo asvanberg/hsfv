@@ -21,7 +21,7 @@ checksum :: Parser Word32
 checksum = fst . head . readHex <$> count 8 hexDigit <?> "checksum"
 
 filepath :: Parser FilePath
-filepath = (many1 $ alphaNum <|> oneOf ".-") <?> "filepath"
+filepath = many1 (alphaNum <|> oneOf ".-") <?> "filepath"
 
 verification :: Parser (FilePath, Word32)
 verification = do fp <- filepath

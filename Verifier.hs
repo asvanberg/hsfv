@@ -8,7 +8,7 @@ import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.Word (Word32)
 
 verify :: FilePath -> Word32 -> IO Bool
-verify fp c = ((==) c) <$> crc32 <$> BL.readFile fp
+verify fp c = (c ==) <$> crc32 <$> BL.readFile fp
 
 invalid :: FilePath -> Word32 -> IO Bool
 invalid fp c = not <$> verify fp c
