@@ -10,6 +10,7 @@ import Data.Functor ((<$>))
 import Data.List.NonEmpty (intersperse, NonEmpty)
 import Data.Semigroup (sconcat)
 import System.Environment (getArgs, getProgName)
+import System.FilePath ((</>), takeDirectory)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import Text.ParserCombinators.Parsec (parseFromFile, Parser, ParseError)
 
@@ -18,9 +19,10 @@ data SfvError = InvalidSfv ParseError | VerificationFailed (NonEmpty FilePath) d
 parseAndVerify :: Parser [(FilePath, Word32)] -> FilePath -> IO (Either SfvError ())
 parseAndVerify parser sfvFile =
   do parsed <- parse parser sfvFile
-     join <$> traverse verify parsed
+     join <$> traverse verify (relativeToSfv <$> parsed)
   where parse = ((first InvalidSfv <$>) .) . parseFromFile
         verify = (first VerificationFailed <$>) . verifySfv
+        relativeToSfv = (first (takeDirectory sfvFile </>) <$>)
 
 main :: IO ()
 main = do args <- getArgs
