@@ -16,5 +16,5 @@ cabal-version:       >=1.8
 
 executable hsfv
   main-is:             Main.hs
-  -- other-modules:
-  build-depends:       base >=4.8, semigroups, digest, bytestring, filepath, parsec >= 3.1.6
+  other-modules:       Parser, Verifier
+  build-depends:       base >=4.8, semigroups, digest, bytestring, filepath, parsec
