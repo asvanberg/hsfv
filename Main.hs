@@ -9,36 +9,28 @@ import Data.Functor ((<$>))
 import Data.List.NonEmpty (intersperse, NonEmpty)
 import Data.Semigroup (sconcat)
 import System.Environment (getArgs, getProgName)
+import System.Console.GetOpt
 import System.FilePath ((</>), takeDirectory)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import Text.ParserCombinators.Parsec (parseFromFile, Parser, ParseError)
 
 main :: IO ()
 main = do args <- getArgs
-          exitWith =<< case parseArgs args of
-            Nothing -> do
-              progName <- getProgName
-              putStrLn $ "Usage: " ++ progName ++ " [-t] [-ff] <sfv>"
-              putStrLn "Use -t flag for tolerant parsing"
-              putStrLn "Use -ff flag for fail fast behaviour"
-              return $ ExitFailure 0
-            Just (flags, sfv) ->
-              HSFV.run flags sfv
+          (flags, sfv) <- parseArgs args
+          exitWith =<< HSFV.run flags sfv
 
-parseArgs :: [String] -> Maybe (Flags, FilePath)
-parseArgs =
-  let
-    parse _     []          = Nothing
-    parse flags [sfv]       = Just (flags, sfv)
-    parse flags (flag:rest) = parse (update flags flag) rest
+parseArgs :: [String] -> IO (Flags, FilePath)
+parseArgs args =
+  case getOpt RequireOrder options args of
+    (o, [sfv], []) -> return (foldl (flip id) defaultOptions o, sfv)
+    (_, _, errs)   -> getProgName >>=
+      \progName -> ioError . userError $ concat errs ++ usageInfo (header progName) options
+  where
+    header progName = "Usage: " ++ progName ++ " [OPTION...] file"
+    defaultOptions = Flags { tolerant = False, failFast = False }
 
-    update flags flag =
-      case flag of
-        "-t" ->
-          flags { tolerant = True }
-        "-ff" ->
-          flags { failFast = True }
-        _ ->
-          flags
-  in
-    parse Flags { tolerant = False, failFast = False }
+options :: [OptDescr (Flags -> Flags)]
+options =
+  [ Option ['t']  ["tolerant"]       (NoArg $ \f -> f { tolerant = True }) "tolerant parsing"
+  , Option []     ["ff", "failfast"] (NoArg $ \f -> f { failFast = True }) "stop verifying on first failure"
+  ]
