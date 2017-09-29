@@ -1,7 +1,6 @@
 module Main where
 
-import Parser (strict, tolerant)
-import Verifier (verifySfv)
+import HSFV (Flags(..), run)
 
 import Control.Monad (join)
 import Data.Bifunctor (first)
@@ -14,31 +13,32 @@ import System.FilePath ((</>), takeDirectory)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import Text.ParserCombinators.Parsec (parseFromFile, Parser, ParseError)
 
-data SfvError = InvalidSfv ParseError | VerificationFailed (NonEmpty FilePath) deriving (Show)
-
-parseAndVerify :: Parser [(FilePath, Word32)] -> FilePath -> IO (Either SfvError ())
-parseAndVerify parser sfvFile =
-  do parsed <- parse parser sfvFile
-     join <$> traverse verify (relativeToSfv <$> parsed)
-  where parse = ((first InvalidSfv <$>) .) . parseFromFile
-        verify = (first VerificationFailed <$>) . verifySfv
-        relativeToSfv = (first (takeDirectory sfvFile </>) <$>)
-
 main :: IO ()
 main = do args <- getArgs
-          case args of
-            ["-t", sfvFile] -> f tolerant sfvFile
-            [sfvFile] -> f strict sfvFile
-            _ -> do progName <- getProgName
-                    putStrLn $ "Usage: " ++ progName ++ " [-t] <sfv>"
-                    putStrLn "Use -t flag for tolerant parsing"
-       where f parser sfvFile = parseAndVerify parser sfvFile >>= either showError success
-             success = const $ putStrLn "Ok"
-             showError (InvalidSfv pe) =
-               do putStrLn "Parsing failure;"
-                  print pe
-                  exitWith (ExitFailure 1)
-             showError (VerificationFailed failedFiles) =
-               do putStrLn "Verification failure;"
-                  putStrLn $ sconcat $ intersperse "\n" $ show <$> failedFiles
-                  exitWith (ExitFailure 2)
+          exitWith =<< case parseArgs args of
+            Nothing -> do
+              progName <- getProgName
+              putStrLn $ "Usage: " ++ progName ++ " [-t] [-ff] <sfv>"
+              putStrLn "Use -t flag for tolerant parsing"
+              putStrLn "Use -ff flag for fail fast behaviour"
+              return $ ExitFailure 0
+            Just (flags, sfv) ->
+              HSFV.run flags sfv
+
+parseArgs :: [String] -> Maybe (Flags, FilePath)
+parseArgs =
+  let
+    parse _     []          = Nothing
+    parse flags [sfv]       = Just (flags, sfv)
+    parse flags (flag:rest) = parse (update flags flag) rest
+
+    update flags flag =
+      case flag of
+        "-t" ->
+          flags { tolerant = True }
+        "-ff" ->
+          flags { failFast = True }
+        _ ->
+          flags
+  in
+    parse Flags { tolerant = False, failFast = False }

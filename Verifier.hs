@@ -1,19 +1,29 @@
-module Verifier (verifySfv) where
+module Verifier (Result(..), Type(..), verify) where
 
-import Control.Monad (filterM)
-import qualified Data.ByteString.Lazy as BL (readFile)
+import Control.Exception.Base (handleJust)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import qualified Data.ByteString as BS (readFile)
 import Data.Digest.CRC32 (crc32)
 import Data.Functor ((<$>))
-import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.Word (Word32)
+import System.IO.Error (isDoesNotExistError)
 
-verify :: FilePath -> Word32 -> IO Bool
-verify fp c = (c ==) <$> crc32 <$> BL.readFile fp
+data Result = Result FilePath Type
+data Type
+  = Ok
+  | Missing
+  | Invalid Word32 Word32
+  deriving (Eq, Show)
 
-invalid :: FilePath -> Word32 -> IO Bool
-invalid fp c = not <$> verify fp c
+calculateChecksum :: FilePath -> IO Word32
+calculateChecksum = (crc32 <$>) . BS.readFile
 
-verifySfv :: [(FilePath, Word32)] -> IO (Either (NonEmpty FilePath) ())
-verifySfv verifications = do
-  failed <- filterM (uncurry invalid) verifications
-  return $ maybe (Right ()) Left $ nonEmpty $ fst <$> failed
+verify :: FilePath -> Word32 -> IO Result
+verify fp expected =
+  liftIO $ Result fp <$> handleJust
+    (\e -> if isDoesNotExistError e then Just Missing else Nothing)
+    return
+    (do
+      actual <- calculateChecksum fp
+      return $ if actual == expected then Ok else Invalid expected actual
+    )
