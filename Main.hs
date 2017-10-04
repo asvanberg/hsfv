@@ -2,22 +2,12 @@ module Main where
 
 import HSFV (Flags(..), run)
 
-import Control.Monad (join)
-import Data.Bifunctor (first)
-import Data.Word (Word32)
-import Data.Functor ((<$>))
-import Data.List.NonEmpty (intersperse, NonEmpty)
-import Data.Semigroup (sconcat)
 import System.Environment (getArgs, getProgName)
 import System.Console.GetOpt
-import System.FilePath ((</>), takeDirectory)
-import System.Exit (exitWith, ExitCode(ExitFailure))
-import Text.ParserCombinators.Parsec (parseFromFile, Parser, ParseError)
+import System.Exit (exitWith)
 
 main :: IO ()
-main = do args <- getArgs
-          (flags, sfv) <- parseArgs args
-          exitWith =<< HSFV.run flags sfv
+main = getArgs >>= parseArgs >>= uncurry HSFV.run >>= exitWith
 
 parseArgs :: [String] -> IO (Flags, FilePath)
 parseArgs args =
