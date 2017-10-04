@@ -13,8 +13,9 @@ parseArgs :: [String] -> IO (Flags, FilePath)
 parseArgs args =
   case getOpt RequireOrder options args of
     (o, [sfv], []) -> return (foldl (flip id) defaultOptions o, sfv)
-    (_, _, errs)   -> getProgName >>=
-      \progName -> ioError . userError $ concat errs ++ usageInfo (header progName) options
+    (_, _, errs)   -> ioError . userError =<< fmap
+      (\progName -> concat errs ++ usageInfo (header progName) options)
+      getProgName
   where
     header progName = "Usage: " ++ progName ++ " [OPTION...] file"
     defaultOptions = Flags { tolerant = False, failFast = False }
